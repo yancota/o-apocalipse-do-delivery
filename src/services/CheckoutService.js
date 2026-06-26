@@ -1,38 +1,41 @@
+const { CheckoutValidator } = require('./validation/CheckoutValidator');
+const { PaymentResult } = require('./payment/PaymentResult');
+const { CircuitBreaker } = require('./resilience/CircuitBreaker');
+const { RetryPolicy } = require('./resilience/RetryPolicy');
+
 class CheckoutService {
-  constructor(gatewayPagamento, pedidoRepository, emailService) {
+  constructor(gatewayPagamento, pedidoRepository, emailService, options = {}) {
     this.gatewayPagamento = gatewayPagamento;
     this.pedidoRepository = pedidoRepository;
-    this.emailService = emailService; // Dependência externa para e-mail
+    this.emailService = emailService;
+    
+    this.circuitBreaker = new CircuitBreaker(options.circuitBreaker);
+    this.retryPolicy = new RetryPolicy(options.retryPolicy);
   }
 
   async processar(pedido) {
+    // 1. RF01: Validação de Entrada de Dados (Sanitização)
+    CheckoutValidator.validar(pedido);
+
+    let paymentResult;
     try {
-      // 1. Tenta a cobrança chamando o gateway bancário externo
-      const resposta = await this.gatewayPagamento.cobrar(pedido.valor, pedido.cartao);
+      // 2. Executa a cobrança no gateway bancário sob Circuit Breaker + Retry Policy
+      const resposta = await this.circuitBreaker.execute(async () => {
+        return await this.retryPolicy.execute(async () => {
+          return await this.gatewayPagamento.cobrar(pedido.valor, pedido.cartao);
+        });
+      });
       
-      if (resposta.status === 'APROVADO') {
-        pedido.status = 'PROCESSADO';
-        const pedidoSalvo = await this.pedidoRepository.salvar(pedido);
-        
-        // PROBLEMA: Disparo de e-mail síncrono acoplado ao fluxo principal
-        await this.emailService.enviarConfirmacao(pedido.clienteEmail, "Pagamento Aprovado");
-        
-        return pedidoSalvo;
-      } else {
-        // 2. Caminho infeliz: Falha de negócio (Ex: Cartão Recusado)
-        pedido.status = 'FALHOU';
-        await this.pedidoRepository.salvar(pedido);
-        return null;
-      }
+      // 3. Mapeia a resposta para um resultado polimórfico
+      paymentResult = PaymentResult.fromResponse(resposta);
     } catch (error) {
-      // 3. Caminho infeliz: Falha de infraestrutura (Ex: Timeout da API externa)
-      console.error("Falha catastrófica no gateway bancário:", error.message);
-      pedido.status = 'ERRO_GATEWAY';
-      await this.pedidoRepository.salvar(pedido);
-      
-      // Reparem como o código atual falha de forma bruta sem tentar retries ou fallbacks
-      return null;
+      console.error("Falha no processamento do gateway bancário:", error.message);
+      // 4. Mapeia o erro para o fallback do resultado polimórfico de erro
+      paymentResult = PaymentResult.fromError(error);
     }
+
+    // 5. Executa a ação do resultado polimorficamente (salvar status, disparar email)
+    return await paymentResult.applyTo(pedido, this.pedidoRepository, this.emailService);
   }
 }
 

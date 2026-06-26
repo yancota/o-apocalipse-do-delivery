@@ -1,0 +1,22 @@
+{
+  "name": "o-apocalipse-do-delivery",
+  "version": "1.0.0",
+  "description": "Intrgrantes\r * Aluno 1\r * Aluno 2",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2"
+  }
+}

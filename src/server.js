@@ -29,21 +29,22 @@ const checkoutService = new CheckoutService(gatewayPagamentoMock, pedidoReposito
 // ENDPOINT CRÍTICO: Rota que receberá a carga massiva da Black Friday
 app.post('/api/v1/checkout', async (req, res) => {
   const { clienteEmail, valor, cartao } = req.body;
-  
-  if (!clienteEmail || !valor || !cartao) {
-    return res.status(400).json({ erro: 'Dados incompletos para checkout' });
-  }
-
   const pedido = { clienteEmail, valor, cartao, status: 'PENDENTE' };
   
-  // Executa o checkout
-  const resultado = await checkoutService.processar(pedido);
+  try {
+    const resultado = await checkoutService.processar(pedido);
 
-  if (resultado && resultado.status === 'PROCESSADO') {
-    return res.status(200).json({ mensagem: 'Pedido finalizado com sucesso!', pedido: resultado });
+    if (resultado && resultado.status === 'PROCESSADO') {
+      return res.status(200).json({ mensagem: 'Pedido finalizado com sucesso!', pedido: resultado });
+    }
+    
+    return res.status(500).json({ erro: 'Não foi possível processar seu pagamento. Tente mais tarde.' });
+  } catch (error) {
+    if (error.message === 'Dados incompletos para checkout') {
+      return res.status(400).json({ erro: 'Dados incompletos para checkout' });
+    }
+    return res.status(500).json({ erro: 'Não foi possível processar seu pagamento. Tente mais tarde.' });
   }
-  
-  return res.status(500).json({ erro: 'Não foi possível processar seu pagamento. Tente mais tarde.' });
 });
 
 // Endpoint auxiliar para simular o comportamento de Thundering Herd (Manada Estourada)
