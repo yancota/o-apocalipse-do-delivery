@@ -9,7 +9,15 @@
   },
   "scripts": {
     "test": "node ./node_modules/jest/bin/jest.js",
-    "mutation": "stryker run"
+    "mutation": "stryker run",
+    "start": "node src/server.js",
+    "load-test": "k6 run k6/load-test.js",
+    "stress-test": "k6 run k6/stress-test.js",
+    "chaos-test": "k6 run k6/chaos-load-test.js",
+    "chaos-inject": "node k6/chaos-injector.js",
+    "infra:up": "docker-compose up -d",
+    "infra:down": "docker-compose down",
+    "infra:setup-proxy": "bash infra/setup-toxiproxy.sh"
   },
   "keywords": [],
   "author": "",

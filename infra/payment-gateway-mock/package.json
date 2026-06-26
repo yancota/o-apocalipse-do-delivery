@@ -1,0 +1,9 @@
+{
+  "name": "payment-gateway-mock",
+  "version": "1.0.0",
+  "description": "Mock do gateway bancário parceiro externo para testes de carga",
+  "main": "index.js",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

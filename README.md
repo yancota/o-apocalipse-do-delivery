@@ -59,13 +59,64 @@ npm test
 
 ---
 
-## 🏁 Próximos Passos (Fase 4 - Caos & SRE)
+## 🔥 Fase 4: Engenharia do Caos e Testes de Desempenho (SRE)
 
-A próxima etapa consiste em testar a resiliência do microsserviço sob estresse de rede controlado:
-1. **Configurar o Toxiproxy:** Crie um proxy intermediando as chamadas do microsserviço ao Gateway de Pagamento.
-2. **Injetar Latência:** Force uma latência de rede de `5000ms` usando o Toxiproxy no gateway de pagamentos falso/real.
-3. **Executar Testes de Carga com k6:** Dispare requisições concorrentes em lote para o endpoint exposto no servidor [server.js](file:///c:/Git/%20Puc/o-apocalipse-do-delivery/src/server.js) em `POST /api/v1/checkout`.
-4. **Verificar SLOs:** O microsserviço deverá ativar o fallback rapidamente (retornando HTTP 500 amigável com status `ERRO_GATEWAY`) e proteger o servidor Express contra o esgotamento do pool de threads, mantendo a taxa de sucesso global de requisições acima de 95% e percentil 95 de latência dentro do estipulado.
+A resiliência do microsserviço é validada sob estresse de rede controlado com injeção de falhas.
+
+### Pré-requisitos
+- Docker e Docker Compose instalados
+- [k6](https://k6.io/docs/getting-started/installation/) instalado
+- Node.js 20+
+
+### SLI/SLO Definidos
+| SLO | Threshold |
+|-----|-----------|
+| p95 Latência | < 5000ms |
+| p99 Latência | < 8000ms |
+| Taxa de Erro | < 5% |
+| Disponibilidade | > 95% |
+
+### Como Executar
+
+```bash
+# 1. Subir ambiente de homologação com Toxiproxy
+docker-compose up -d --build
+
+# 2. Configurar proxies no Toxiproxy
+bash infra/setup-toxiproxy.sh
+
+# 3. Teste de carga baseline (sem caos)
+k6 run k6/load-test.js
+
+# 4. Teste de estresse (encontrar ponto de ruptura)
+k6 run k6/stress-test.js
+
+# 5. CENÁRIO PRINCIPAL: Carga + Caos (2 terminais)
+# Terminal 1:
+k6 run k6/chaos-load-test.js
+# Terminal 2:
+node k6/chaos-injector.js
+
+# OU executar tudo automatizado:
+bash infra/run-chaos-experiment.sh
+
+# 6. Encerrar infraestrutura
+docker-compose down
+```
+
+### Cenários de Caos Implementados
+1. **Gateway Lento:** +5000ms de latência na API bancária (Toxiproxy `latency` toxic)
+2. **Thundering Herd:** Derruba cache Redis + 10.000 requisições simultâneas em burst
+3. **Bandwidth Limit:** Rede saturada a 1KB/s entre app e gateway
+
+### Mecanismos de Resiliência Validados
+- **Circuit Breaker:** Abre após 50% de falhas, protege contra efeito cascata
+- **Retry Policy + Timeout:** Backoff de 500ms, timeout de 3s/tentativa
+- **Degradação Graciosa:** Sistema retorna erro rápido ao invés de travar
+
+### Relatórios
+- Relatório de caos: `reports/k6/chaos-report.json`
+- Documentação completa: [`docs/fase4_sre_chaos_engineering.md`](docs/fase4_sre_chaos_engineering.md)
 
 ---
 

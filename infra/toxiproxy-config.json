@@ -1,0 +1,14 @@
+[
+  {
+    "name": "payment-gateway",
+    "listen": "0.0.0.0:9001",
+    "upstream": "payment-gateway:4000",
+    "enabled": true
+  },
+  {
+    "name": "redis-cache",
+    "listen": "0.0.0.0:9002",
+    "upstream": "redis:6379",
+    "enabled": true
+  }
+]
