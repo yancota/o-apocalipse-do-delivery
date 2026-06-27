@@ -2,3 +2,4 @@
 .stryker-tmp/
 reports/k6/*.json
 reports/k6/*.html
+.DS_Store
